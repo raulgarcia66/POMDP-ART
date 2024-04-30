@@ -1,0 +1,11 @@
+*.pdf
+/Input Files/Instructions executing solver.txt
+*.POMDP
+*.alpha
+*.pg
+!tester-86760.alpha
+!tester-86760.pg
+!tester.POMDP
+
+/Aim 2 Data
+/POMDP Examples
