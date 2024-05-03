@@ -1,6 +1,8 @@
 
 #### Generate input file for pomdp-solve software.
 #### Syntax requirements can be found at https://www.pomdp.org/code/pomdp-file-spec.html
+using LinearAlgebra
+include("./util.jl")
 
 #### Discount factor
 # %f
@@ -13,7 +15,20 @@ values =  "cost" # to minimize
 #### States
 # [ %d, <list-of-states> ]
 # When an integer is given, the states are enumerated starting from 0
-states = 13
+# Delimeters are white space
+# states = 13
+# Since pomdp-solver requires stationary parameters, time is considered as a state
+# Hence each state consists of ΔNTCP, b, and t
+ΔNTCP_states = 0:12
+budget = 3
+horizon = 4  # 4 decision epochs
+states = String[]
+for ΔNTCP in ΔNTCP_states, b in budget:-1:0, t = 1:horizon
+    push!(states, "$(ΔNTCP)_$(b)_$t")
+end
+num_ΔNTCP_states = length(ΔNTCP_states)
+num_budget_states = budget + 1
+num_states = length(states)
 
 #### Actions
 # [ %d, <list-of-actions> ]
@@ -35,13 +50,38 @@ end
 observation_intensities = [i*j for i = 1:0.5:2, j=1:3]
 
 #### Optional starting state 
-start_dist = [1.0; zeros(states-1)]
-# start_include = [1,2,3,4]  # uniform distribution over these states
+# start_dist = [1.0; zeros(num_states-1)]
+# Since first decision epoch is at F10, the starting probabilities should be the following:
+ΔNTCP_start_dist = [0.5, 0.13, 0.08, 0.11, 0.04, 0.04, 0.0, 0.02, 0.0, 0.0, 0.02, 0.02, 0.04]
+start_dist =[ΔNTCP_start_dist; zeros(num_states - num_ΔNTCP_states)]
+# sanity_check_prob(ΔNTCP_start_dist)
 
 #### State transition probabilities
-T = zeros(length(actions), states, states)
-# Replan (table B.4 from Aim 1, F15 to F20)
-T[1,:,:] = [
+T = zeros(length(actions), num_states, num_states)
+
+# Replan, F0 to F10
+# Replan isn't an option at time 0
+# The first row should be the starting probability of the POMDP (with full budget and start of horizon)
+# T_ΔNTCP_F0toF10_R = Matrix{Int}(I(num_ΔNTCP_states))
+# T_ΔNTCP_F0toF10_R[1,:] = [0.5 0.13 0.08 0.11 0.04 0.04 0.0 0.02 0.0 0.0 0.02 0.02 0.04]
+# Replan, F10 to F15, table B.3
+T_ΔNTCP_F10toF15_R = [
+    0.88 0.0 0.12 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
+    0.88 0.0 0.12 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
+    0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
+    0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
+    0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
+    0.0 0.25 0.75 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
+    0.0 0.25 0.75 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
+    0.0 0.25 0.75 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
+    0.0 0.0 0.5 0.33 0.17 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
+    0.0 0.0 0.5 0.33 0.17 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
+    0.0 0.0 0.5 0.33 0.17 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
+    0.0 0.0 0.0 0.0 0.5 0.0 0.5 0.0 0.0 0.0 0.0 0.0 0.0;
+    0.0 0.0 0.0 0.0 0.5 0.0 0.5 0.0 0.0 0.0 0.0 0.0 0.0
+]
+# Replan, F15 to F20, table B.4
+T_ΔNTCP_F15toF20_R = [
     0.88 0.0 0.12 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
     0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
     0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
@@ -56,8 +96,46 @@ T[1,:,:] = [
     0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0;
     0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0
 ]
-# Continue (table B.2 from Aim 1, F15 to F20)
-T[2,:,:] = [
+# Replan, F20 to F25, table B.5
+T_ΔNTCP_F20toF25_R = [
+    0.88 0.0 0.12 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
+    0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
+    0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
+    0.0 0.25 0.75 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
+    0.0 0.0 0.5 0.33 0.17 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
+    0.0 0.0 0.5 0.33 0.17 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
+    0.0 0.0 0.0 0.0 0.5 0.0 0.5 0.0 0.0 0.0 0.0 0.0 0.0;
+    0.0 0.0 0.0 0.0 0.0 0.5 0.0 0.5 0.0 0.0 0.0 0.0 0.0;
+    0.0 0.0 0.0 0.0 0.0 0.5 0.0 0.5 0.0 0.0 0.0 0.0 0.0;
+    0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0;
+    0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0;
+    0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0;
+    0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0
+]
+# Replan, F25 to F30, table B.6
+T_ΔNTCP_F25toF30_R = [
+    0.88 0.0 0.12 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
+    0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
+    0.0 0.25 0.75 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
+    0.0 0.0 0.5 0.33 0.17 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
+    0.0 0.0 0.5 0.33 0.17 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
+    0.0 0.0 0.0 0.0 0.5 0.0 0.5 0.0 0.0 0.0 0.0 0.0 0.0;
+    0.0 0.0 0.0 0.0 0.0 0.5 0.0 0.5 0.0 0.0 0.0 0.0 0.0;
+    0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0;
+    0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0;
+    0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0;
+    0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0;
+    0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0;
+    0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0
+]
+
+T_ΔNTCP_all_R = [T_ΔNTCP_F10toF15_R, T_ΔNTCP_F15toF20_R, T_ΔNTCP_F20toF25_R, T_ΔNTCP_F25toF30_R]
+
+# Continue, F0 to F10, table B.1
+# T_ΔNTCP_F0toF10_C = copy(T_ΔNTCP_F0toF10_R)  # Replan isn't an option at time 0
+# As stated above, the first row should be the starting probability of the POMDP (with full budget and start of horizon)
+# Continue, F10 to F15, table B.2
+T_ΔNTCP_F10toF15_C = [
     0.88 0.0 0.12 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
     0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
     0.0 0.25 0.75 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
@@ -72,6 +150,33 @@ T[2,:,:] = [
     0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0;
     0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.5 0.5
 ]
+# Continue, F15 to F20, table B.2
+T_ΔNTCP_F15toF20_C = copy(T_ΔNTCP_F10toF15_C)
+# Continue, F20 to F25, table B.2
+T_ΔNTCP_F20toF25_C = copy(T_ΔNTCP_F10toF15_C)
+# Continue, F25 to F30, table B.2
+T_ΔNTCP_F25toF30_C = copy(T_ΔNTCP_F10toF15_C)
+
+T_ΔNTCP_all_C = [T_ΔNTCP_F10toF15_C, T_ΔNTCP_F15toF20_C, T_ΔNTCP_F20toF25_C, T_ΔNTCP_F25toF30_C]
+
+### Place all probabilities into the matrix
+## Replan
+# T_ΔNTCP_F10toF15_R goes for b = 0:3, t = 1
+t=1
+for b = 1:num_budget_states-1
+    row_indices = ((b-1)*num_ΔNTCP_states + (t-1)*num_budget_states*num_ΔNTCP_states +1):((b)*num_ΔNTCP_states + (t-1)*num_budget_states*num_ΔNTCP_states)
+    col_indices = ((b)*num_ΔNTCP_states + (t)*num_budget_states*num_ΔNTCP_states +1):((b+1)*num_ΔNTCP_states + (t)*num_budget_states*num_ΔNTCP_states)
+    println("row indices: $row_indices")
+    println("col indices: $col_indices")
+    T[1, row_indices, col_indices] = copy(T_ΔNTCP_F10toF15_R)
+end
+bad_rows = sanity_check_prob(T[1,:,:])
+row_sums = compute_row_sums(T[1,:,:])
+# filter(tup -> tup[2] == 0.0, row_sumss)
+# TODO: Here
+t=2
+
+## Continue
 
 #### Observation probabilities
 # O = 
@@ -82,9 +187,6 @@ for s_start in Base.OneTo(states)
     R["Replan"][s_start,:,:] = [(s_end-s_start) * o for s_end = 1:states, o = observation_intensities]
 end
 R["Continue"] = 3 * copy(R["Replan"])
-
-#### Horizon
-horizon = 6
 
 ##########################################################################
 #### Write to file
@@ -185,6 +287,6 @@ close(f)
 
 ##########################################################################
 #### Execute pomdp-solve via command line
-# cmd = `/Users/raulgarcia/Documents/pomdp-solve-5.5/src/pomdp-solve -pomdp ./Input\ Files/$filename -horizon $horizon`
+# cmd = `/Users/raulgarcia/Documents/pomdp-solve-5.5/src/pomdp-solve -pomdp ./Input\ Files/$filename`
 # run(cmd)
 
