@@ -49,39 +49,21 @@ end
 #     "BMI_Med_Pain_Low", "BMI_Med_Pain_Med", "BMI_Med_Pain_High",
 #     "BMI_High_Pain_Low", "BMI_High_Pain_Med", "BMI_High_Pain_High"]
 
-observation_intensities = [i*j for i = 1:0.5:2, j=1:3]
+# TODO: Give meaning values
+observation_intensities = [i*j for i = 1:0.5:2, j=1:3]  # matrix
 
 #### Optional starting state 
 # start_dist = [1.0; zeros(num_states-1)]
-# Since first decision epoch is at F10, the starting probabilities should be the following:
+# Since first decision epoch is at F10, the starting probabilities (at full budget and start of horizon) should be the following:
 ΔNTCP_start_dist = [0.5, 0.13, 0.08, 0.11, 0.04, 0.04, 0.0, 0.02, 0.0, 0.0, 0.02, 0.02, 0.04]
 start_dist =[ΔNTCP_start_dist; zeros(num_states - num_ΔNTCP_states)]
 # sanity_check_prob(ΔNTCP_start_dist)
 
 #### State transition probabilities
-T = zeros(length(actions), num_states, num_states)
-
-# Absorbing probabilities
-# Whenever the budget is 0, transition to this state
-for t = 1:horizon
-    ind_start = (t-1)*num_ΔNTCP_states*num_budget_states + (num_budget_states-1)*num_ΔNTCP_states + 1
-    ind_end = (t-1)*num_ΔNTCP_states*num_budget_states + (num_budget_states)*num_ΔNTCP_states
-    println("Range: $ind_start:$ind_end")
-    println("States: $(states[ind_start:ind_end])")
-    T[1, ind_start:ind_end, end] .= 1.0
-end
-T[1,end,end] = 1.0
-# foreach(i -> T[1,i,end] = 1, indices)
-
-# Identity probabilities at horizon+1
-range = horizon *num_ΔNTCP_states *num_budget_states +1:(horizon+1) *num_ΔNTCP_states *num_budget_states
-T[1,range, range] = I(num_ΔNTCP_states*num_budget_states)
-T[2,range, range] = I(num_ΔNTCP_states*num_budget_states)
-
-# Replan, F0 to F10
+## Replan, F0 to F10
 # Replan isn't an option at time 0. The trans. prob. of Continue  at F0 correspond to the starting distribution
 # of the POMDP (see starting state above)
-# Replan, F10 to F15, table B.3
+## Replan, F10 to F15, table B.3
 T_ΔNTCP_F10toF15_R = [
     0.88 0.0 0.12 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
     0.88 0.0 0.12 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
@@ -97,7 +79,7 @@ T_ΔNTCP_F10toF15_R = [
     0.0 0.0 0.0 0.0 0.5 0.0 0.5 0.0 0.0 0.0 0.0 0.0 0.0;
     0.0 0.0 0.0 0.0 0.5 0.0 0.5 0.0 0.0 0.0 0.0 0.0 0.0
 ]
-# Replan, F15 to F20, table B.4
+## Replan, F15 to F20, table B.4
 T_ΔNTCP_F15toF20_R = [
     0.88 0.0 0.12 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
     0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
@@ -113,7 +95,7 @@ T_ΔNTCP_F15toF20_R = [
     0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0;
     0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0
 ]
-# Replan, F20 to F25, table B.5
+## Replan, F20 to F25, table B.5
 T_ΔNTCP_F20toF25_R = [
     0.88 0.0 0.12 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
     0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
@@ -129,7 +111,7 @@ T_ΔNTCP_F20toF25_R = [
     0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0;
     0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0
 ]
-# Replan, F25 to F30, table B.6
+## Replan, F25 to F30, table B.6
 T_ΔNTCP_F25toF30_R = [
     0.88 0.0 0.12 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
     0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
@@ -148,10 +130,10 @@ T_ΔNTCP_F25toF30_R = [
 
 T_ΔNTCP_all_R = [T_ΔNTCP_F10toF15_R, T_ΔNTCP_F15toF20_R, T_ΔNTCP_F20toF25_R, T_ΔNTCP_F25toF30_R]
 
-# Continue, F0 to F10, table B.1
-# T_ΔNTCP_F0toF10_C = copy(T_ΔNTCP_F0toF10_R)  # Replan isn't an option at time 0
-# As stated above, the first row should be the starting probability of the POMDP (with full budget and start of horizon)
-# Continue, F10 to F15, table B.2
+## Continue, F0 to F10, table B.1
+# The trans. prob. of Continue at F0 correspond to the starting distribution
+# of the POMDP (see starting state above)
+## Continue, F10 to F15, table B.2
 T_ΔNTCP_F10toF15_C = [
     0.88 0.0 0.12 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
     0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
@@ -167,38 +149,80 @@ T_ΔNTCP_F10toF15_C = [
     0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0;
     0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.5 0.5
 ]
-# Continue, F15 to F20, table B.2
+## Continue, F15 to F20, table B.2
 T_ΔNTCP_F15toF20_C = copy(T_ΔNTCP_F10toF15_C)
-# Continue, F20 to F25, table B.2
+## Continue, F20 to F25, table B.2
 T_ΔNTCP_F20toF25_C = copy(T_ΔNTCP_F10toF15_C)
-# Continue, F25 to F30, table B.2
+## Continue, F25 to F30, table B.2
 T_ΔNTCP_F25toF30_C = copy(T_ΔNTCP_F10toF15_C)
 
 T_ΔNTCP_all_C = [T_ΔNTCP_F10toF15_C, T_ΔNTCP_F15toF20_C, T_ΔNTCP_F20toF25_C, T_ΔNTCP_F25toF30_C]
 
-### Place all probabilities into the matrix
-## Replan
-# T_ΔNTCP_F10toF15_R goes for b = 0:3, t = 1
-t=1
-for b = 1:num_budget_states-1
-    row_indices = ((b-1)*num_ΔNTCP_states + (t-1)*num_budget_states*num_ΔNTCP_states +1):((b)*num_ΔNTCP_states + (t-1)*num_budget_states*num_ΔNTCP_states)
-    col_indices = ((b)*num_ΔNTCP_states + (t)*num_budget_states*num_ΔNTCP_states +1):((b+1)*num_ΔNTCP_states + (t)*num_budget_states*num_ΔNTCP_states)
-    println("row indices: $row_indices")
-    println("col indices: $col_indices")
-    T[1, row_indices, col_indices] = copy(T_ΔNTCP_F10toF15_R)
-end
-bad_rows = sanity_check_prob(T[1,:,:])
-row_sums = compute_row_sums(T[1,:,:])
-# filter(tup -> tup[2] == 0.0, row_sumss)
-# TODO: Here
-t=2
+# Collect into a dictionary for ease of access
+T_ΔNTCP_all = Dict("Replan" => T_ΔNTCP_all_R, "Continue" => T_ΔNTCP_all_C)
 
-## Continue
+# Create master matrix
+T = zeros(length(actions), num_states, num_states)
+
+## Place prob matrices into the master matrix
+for a_ind in eachindex(actions)
+    println("\nAction: $(actions[a_ind])")
+    for t = 1:horizon
+        println("Time = $t")
+        # b serves as a counter here
+        if actions[a_ind] == "Replan"
+            for b = 1:num_budget_states-1
+                row_indices = ((t-1)*num_budget_states*num_ΔNTCP_states +(b-1)*num_ΔNTCP_states +1):((t-1)*num_budget_states*num_ΔNTCP_states +(b)*num_ΔNTCP_states)
+                col_indices = ((t)*num_budget_states*num_ΔNTCP_states +(b)*num_ΔNTCP_states +1):((t)*num_budget_states*num_ΔNTCP_states +(b+1)*num_ΔNTCP_states)
+                println("\trow indices: $row_indices")
+                println("\tcol indices: $col_indices")
+                T[a_ind, row_indices, col_indices] = T_ΔNTCP_all[actions[a_ind]][t] # copy(T_ΔNTCP_F10toF15_R)
+            end
+        elseif actions[a_ind] == "Continue"
+            for b = 1:num_budget_states
+                row_indices = ((t-1)*num_budget_states*num_ΔNTCP_states +(b-1)*num_ΔNTCP_states +1):((t-1)*num_budget_states*num_ΔNTCP_states +(b)*num_ΔNTCP_states)
+                col_indices = ((t)*num_budget_states*num_ΔNTCP_states +(b-1)*num_ΔNTCP_states +1):((t)*num_budget_states*num_ΔNTCP_states +(b)*num_ΔNTCP_states)
+                println("\trow indices: $row_indices")
+                println("\tcol indices: $col_indices")
+                T[a_ind, row_indices, col_indices] = T_ΔNTCP_all[actions[a_ind]][t] # copy(T_ΔNTCP_F10toF15_C)
+            end
+        end
+    end
+end
+
+## Add absorbing probabilities
+# Whenever the budget is 0 and action is Replan, transition to the absorbing state
+for t = 1:horizon
+    ind_start = (t-1)*num_ΔNTCP_states*num_budget_states + (num_budget_states-1)*num_ΔNTCP_states + 1
+    ind_end = (t-1)*num_ΔNTCP_states*num_budget_states + (num_budget_states)*num_ΔNTCP_states
+    println("Range: $ind_start:$ind_end")
+    println("States: $(states[ind_start:ind_end])")
+    T[1, ind_start:ind_end, end] .= 1.0  # last state is the absorbing state
+end
+# Recursion of the absorbing state
+T[1,end,end] = 1.0
+T[2,end,end] = 1.0
+
+## Add identity probabilities at horizon+1
+range = horizon *num_ΔNTCP_states *num_budget_states +1:(horizon+1) *num_ΔNTCP_states *num_budget_states
+T[1,range, range] = I(num_ΔNTCP_states*num_budget_states)
+T[2,range, range] = I(num_ΔNTCP_states*num_budget_states)
+
+# Check if probabilities are valid
+bad_rows_R = sanity_check_prob(T[1,:,:])
+bad_rows_C = sanity_check_prob(T[2,:,:])
+
+# Write transitions to an excel file (with labels)
+# TODO: 
+
 
 #### Observation probabilities
+# TODO: 
 # O = 
 
+
 #### Immediate Rewards
+# TODO: 
 R = Dict("Replan" => zeros(states, states, length(observations)), "Continue" => zeros(states, states, length(observations)))
 for s_start in Base.OneTo(states)
     R["Replan"][s_start,:,:] = [(s_end-s_start) * o for s_end = 1:states, o = observation_intensities]
