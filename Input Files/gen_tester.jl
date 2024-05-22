@@ -61,11 +61,26 @@ start_dist =[ΔNTCP_start_dist; zeros(num_states - num_ΔNTCP_states)]
 #### State transition probabilities
 T = zeros(length(actions), num_states, num_states)
 
+# Absorbing probabilities
+# Whenever the budget is 0, transition to this state
+for t = 1:horizon
+    ind_start = (t-1)*num_ΔNTCP_states*num_budget_states + (num_budget_states-1)*num_ΔNTCP_states + 1
+    ind_end = (t-1)*num_ΔNTCP_states*num_budget_states + (num_budget_states)*num_ΔNTCP_states
+    println("Range: $ind_start:$ind_end")
+    println("States: $(states[ind_start:ind_end])")
+    T[1, ind_start:ind_end, end] .= 1.0
+end
+T[1,end,end] = 1.0
+# foreach(i -> T[1,i,end] = 1, indices)
+
+# Identity probabilities at horizon+1
+range = horizon *num_ΔNTCP_states *num_budget_states +1:(horizon+1) *num_ΔNTCP_states *num_budget_states
+T[1,range, range] = I(num_ΔNTCP_states*num_budget_states)
+T[2,range, range] = I(num_ΔNTCP_states*num_budget_states)
+
 # Replan, F0 to F10
-# Replan isn't an option at time 0
-# The first row should be the starting probability of the POMDP (with full budget and start of horizon)
-# T_ΔNTCP_F0toF10_R = Matrix{Int}(I(num_ΔNTCP_states))
-# T_ΔNTCP_F0toF10_R[1,:] = [0.5 0.13 0.08 0.11 0.04 0.04 0.0 0.02 0.0 0.0 0.02 0.02 0.04]
+# Replan isn't an option at time 0. The trans. prob. of Continue  at F0 correspond to the starting distribution
+# of the POMDP (see starting state above)
 # Replan, F10 to F15, table B.3
 T_ΔNTCP_F10toF15_R = [
     0.88 0.0 0.12 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
