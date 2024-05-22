@@ -2,6 +2,7 @@
 #### Generate input file for pomdp-solve software.
 #### Syntax requirements can be found at https://www.pomdp.org/code/pomdp-file-spec.html
 using LinearAlgebra
+using Pipe
 include("./util.jl")
 
 #### Discount factor
@@ -23,9 +24,10 @@ values =  "cost" # to minimize
 budget = 3
 horizon = 4  # 4 decision epochs
 states = String[]
-for ΔNTCP in ΔNTCP_states, b in budget:-1:0, t = 1:horizon
+for t = 1:(horizon+1), b in budget:-1:0, ΔNTCP in ΔNTCP_states
     push!(states, "$(ΔNTCP)_$(b)_$t")
 end
+push!(states, "Forbidden")  # add dummy absorbing state for when replanning not allowed
 num_ΔNTCP_states = length(ΔNTCP_states)
 num_budget_states = budget + 1
 num_states = length(states)
@@ -41,7 +43,7 @@ actions = ["Replan", "Continue"]
 observations = String[]
 levels = ["Low", "Med", "High"]
 for bmi_level in levels, pain_level in levels
-    push!(observations, "BMI_$(bmi_level)_Pain_$(pain_level)")
+    push!(observations, "BMI-$(bmi_level)___Pain-$(pain_level)")
 end
 # observations = ["BMI_Low_Pain_Low", "BMI_Low_Pain_Med", "BMI_Low_Pain_High",
 #     "BMI_Med_Pain_Low", "BMI_Med_Pain_Med", "BMI_Med_Pain_High",
