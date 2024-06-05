@@ -22,12 +22,12 @@ values =  "cost" # to minimize
 # Hence each state consists of ΔNTCP, b, and t
 ΔNTCP_states = 0:12
 budget = 3
-horizon = 4  # 4 decision epochs
+horizon = 4  # 4 decision epochs; not the pomdp-solve optional parameter
 states = String[]
 for t = 1:(horizon+1), b in budget:-1:0, ΔNTCP in ΔNTCP_states
     push!(states, "$(ΔNTCP)_$(b)_$t")
 end
-push!(states, "Forbidden")  # add dummy absorbing state for when replanning not allowed
+push!(states, "Forbidden")  # add dummy absorbing state for when replanning is not allowed
 num_ΔNTCP_states = length(ΔNTCP_states)
 num_budget_states = budget + 1
 num_states = length(states)
@@ -40,22 +40,22 @@ actions = ["Replan", "Continue"]
 #### Observations
 # [ %d, <list-of-observations> ]
 # Delimeters are white space
+# An observation is observed after the state transitions
+# Will assume states are ordered from best to worst, with high pain being worse than a high BMI drop
 observations = String[]
 levels = ["Low", "Med", "High"]
-for bmi_level in levels, pain_level in levels
-    push!(observations, "BMI-$(bmi_level)___Pain-$(pain_level)")
+for pain_level in levels, bmi_level in levels
+    push!(observations, "Pain-$(pain_level)___BMI-$(bmi_level)")
 end
-# observations = ["BMI_Low_Pain_Low", "BMI_Low_Pain_Med", "BMI_Low_Pain_High",
-#     "BMI_Med_Pain_Low", "BMI_Med_Pain_Med", "BMI_Med_Pain_High",
-#     "BMI_High_Pain_Low", "BMI_High_Pain_Med", "BMI_High_Pain_High"]
-
-# TODO: Give meaning values
-observation_intensities = [i*j for i = 1:0.5:2, j=1:3]  # matrix
+num_observations = length(observations)
+# observations = [ "Pain-High___BMI-High", "Pain-High___BMI-Med", "Pain-High___BMI-Low", 
+#     "Pain-Med___BMI-High", "Pain-Med___BMI-Med", "Pain-Med___BMI-Low",
+#     "Pain-Low___BMI-High", "Pain-Low___BMI-Med", "Pain-Low___BMI-Low"]
 
 #### Optional starting state 
-# start_dist = [1.0; zeros(num_states-1)]
 # Since first decision epoch is at F10, the starting probabilities (at full budget and start of horizon) should be the following:
 ΔNTCP_start_dist = [0.5, 0.13, 0.08, 0.11, 0.04, 0.04, 0.0, 0.02, 0.0, 0.0, 0.02, 0.02, 0.04]
+# This corresponds to the states at the beginning
 start_dist =[ΔNTCP_start_dist; zeros(num_states - num_ΔNTCP_states)]
 # sanity_check_prob(ΔNTCP_start_dist)
 
@@ -131,8 +131,7 @@ T_ΔNTCP_F25toF30_R = [
 T_ΔNTCP_all_R = [T_ΔNTCP_F10toF15_R, T_ΔNTCP_F15toF20_R, T_ΔNTCP_F20toF25_R, T_ΔNTCP_F25toF30_R]
 
 ## Continue, F0 to F10, table B.1
-# The trans. prob. of Continue at F0 correspond to the starting distribution
-# of the POMDP (see starting state above)
+# The trans. prob. of Continue at F0 correspond to the starting distribution of the POMDP (see starting state above)
 ## Continue, F10 to F15, table B.2
 T_ΔNTCP_F10toF15_C = [
     0.88 0.0 0.12 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
@@ -203,7 +202,7 @@ end
 T[1,end,end] = 1.0
 T[2,end,end] = 1.0
 
-## Add identity probabilities at horizon+1
+## Add identity probabilities at horizon+1 for both actions
 range = horizon *num_ΔNTCP_states *num_budget_states +1:(horizon+1) *num_ΔNTCP_states *num_budget_states
 T[1,range, range] = I(num_ΔNTCP_states*num_budget_states)
 T[2,range, range] = I(num_ΔNTCP_states*num_budget_states)
@@ -212,13 +211,70 @@ T[2,range, range] = I(num_ΔNTCP_states*num_budget_states)
 bad_rows_R = sanity_check_prob(T[1,:,:])
 bad_rows_C = sanity_check_prob(T[2,:,:])
 
-# Write transitions to an excel file (with labels)
+# Write transition matrix to an excel file (with labels)
 # TODO: 
 
 
 #### Observation probabilities
 # TODO: 
-# O = 
+# An observation is observed after the state transitions
+# O: <action> : <end-state> : <observation> %f
+# O: <action> : <end-state>
+# %f %f ... %f
+
+# TODO: Give meaning values
+observation_intensities = [i*j for i = 1:0.5:2, j=1:3]  # matrix
+
+# Create master matrix
+O = zeros(length(actions), num_states, num_observations)
+O_sub = zeros(num_ΔNTCP_states, num_observations)
+# Will assume the probabilities are independent of budget and time (may consider time dependence)
+# The worse a ΔNTCP state, the likelier for a worse observation
+# Will assume states are ordered from best to worse, with high pain being worse than a high BMI drop
+# Replan should have larger probabilities of going to better states than Continue
+
+# Weights of likeliness and length of their blocks in the prob. matrix
+w_h = 4 # prob: highest
+# block_length_h = 4
+w_m = w_h / 2 # prob: medium
+# block_length_h = 2
+w_l = 1 # prob: least
+# block_length_h = 3
+
+## Replan
+# TODO: Fix this to reflect replanning (increase prob toward betters states)
+O_sub = [
+    1/6 1/6 1/6 1/6 1/12 1/12 1/12 1/24 1/24;
+    1/6 1/6 1/6 1/6 1/12 1/12 1/12 1/24 1/24;
+    1/6 1/6 1/6 1/6 1/12 1/12 1/12 1/24 1/24;
+    5/65 5/65 8/52 8/52 8/52 8/52 5/65 5/65 5/65;
+    5/65 5/65 8/52 8/52 8/52 8/52 5/65 5/65 5/65;
+    5/65 5/65 5/65 8/52 8/52 8/52 8/52 5/65 5/65;
+    5/65 5/65 5/65 8/52 8/52 8/52 8/52 5/65 5/65;
+    5/65 5/65 5/65 8/52 8/52 8/52 8/52 5/65 5/65;
+    1/25 2/25 2/25 2/25 4/25 4/25 4/25 4/25 2/25;
+    1/25 2/25 2/25 2/25 4/25 4/25 4/25 4/25 2/25;
+    1/24 1/24 1/12 1/12 1/12 1/6 1/6 1/6 1/6;
+    1/24 1/24 1/12 1/12 1/12 1/6 1/6 1/6 1/6;
+    1/24 1/24 1/12 1/12 1/12 1/6 1/6 1/6 1/6
+]
+# bad_rows_R = sanity_check_prob(O_sub)
+## Continue
+O_sub = [
+    1/6 1/6 1/6 1/6 1/12 1/12 1/12 1/24 1/24;
+    1/6 1/6 1/6 1/6 1/12 1/12 1/12 1/24 1/24;
+    1/6 1/6 1/6 1/6 1/12 1/12 1/12 1/24 1/24;
+    5/65 5/65 8/52 8/52 8/52 8/52 5/65 5/65 5/65;
+    5/65 5/65 8/52 8/52 8/52 8/52 5/65 5/65 5/65;
+    5/65 5/65 5/65 8/52 8/52 8/52 8/52 5/65 5/65;
+    5/65 5/65 5/65 8/52 8/52 8/52 8/52 5/65 5/65;
+    5/65 5/65 5/65 8/52 8/52 8/52 8/52 5/65 5/65;
+    1/25 2/25 2/25 2/25 4/25 4/25 4/25 4/25 2/25;
+    1/25 2/25 2/25 2/25 4/25 4/25 4/25 4/25 2/25;
+    1/24 1/24 1/12 1/12 1/12 1/6 1/6 1/6 1/6;
+    1/24 1/24 1/12 1/12 1/12 1/6 1/6 1/6 1/6;
+    1/24 1/24 1/12 1/12 1/12 1/6 1/6 1/6 1/6
+]
 
 
 #### Immediate Rewards
