@@ -11,7 +11,8 @@ discount = 0.99
 
 #### Rewards
 # [ reward, cost ]
-values =  "cost" # to minimize
+# values =  "cost" # to minimize
+values = "reward" # to maximize
 
 #### States
 # [ %d, <list-of-states> ]
