@@ -1,12 +1,12 @@
 """
 Returns rows whose sums are not unity. 
 """
-function sanity_check_prob(P::Matrix{T}) where T
-    return @pipe filter(row_ind -> sum(P[row_ind,:]) != 1.0, 1:size(P,1)) |> map(bad_row -> (bad_row, sum(P[bad_row,:])), _)
+function sanity_check_prob(P::Matrix{T}; tol::Float64 = 1E-5) where T
+    return @pipe filter(row_ind -> abs(sum(P[row_ind,:]) - 1.0) > tol, 1:size(P,1)) |> map(bad_row -> (bad_row, sum(P[bad_row,:])), _)
 end
 
-function sanity_check_prob(x::Vector{T}) where T
-    return sum(x) == 1.0
+function sanity_check_prob(x::Vector{T}; tol::Float64 = 1E-5) where T
+    return abs(sum(x) - 1.0) > tol
 end
 
 # """
