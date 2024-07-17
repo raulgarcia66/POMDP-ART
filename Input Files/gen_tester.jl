@@ -42,7 +42,7 @@ actions = ["Replan", "Continue"]
 # [ %d, <list-of-observations> ]
 # Delimeters are white space
 # An observation is observed after the state transitions
-# Will assume states are ordered from best to worst, with high pain being worse than a high BMI drop
+# Will assume observations are ordered from best to worst, with high pain being worse than a high BMI drop
 observations = String[]
 levels = ["Low", "Med", "High"]
 for pain_level in levels, bmi_level in levels
@@ -62,8 +62,9 @@ start_dist =[ΔNTCP_start_dist; zeros(num_states - num_ΔNTCP_states)]
 
 #### State transition probabilities
 ## Replan, F0 to F10
-# Replan isn't an option at time 0. The trans. prob. of Continue  at F0 correspond to the starting distribution
-# of the POMDP (see starting state above)
+# THIS IS NOT A DECISION EPOCH
+# Replan isn't an option at time 0. The trans. prob. of Continue at F0 correspond to the starting distribution
+# of the POMDP (see starting state dist. above)
 ## Replan, F10 to F15, table B.3
 T_ΔNTCP_F10toF15_R = [
     0.88 0.0 0.12 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
@@ -132,7 +133,8 @@ T_ΔNTCP_F25toF30_R = [
 T_ΔNTCP_all_R = [T_ΔNTCP_F10toF15_R, T_ΔNTCP_F15toF20_R, T_ΔNTCP_F20toF25_R, T_ΔNTCP_F25toF30_R]
 
 ## Continue, F0 to F10, table B.1
-# The trans. prob. of Continue at F0 correspond to the starting distribution of the POMDP (see starting state above)
+# THIS IS NOT A DECISION EPOCH
+# The trans. prob. of Continue at F0 correspond to the starting distribution of the POMDP (see starting state dist. above)
 ## Continue, F10 to F15, table B.2
 T_ΔNTCP_F10toF15_C = [
     0.88 0.0 0.12 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0;
@@ -162,7 +164,7 @@ T_ΔNTCP_all_C = [T_ΔNTCP_F10toF15_C, T_ΔNTCP_F15toF20_C, T_ΔNTCP_F20toF25_C,
 T_ΔNTCP_all = Dict("Replan" => T_ΔNTCP_all_R, "Continue" => T_ΔNTCP_all_C)
 
 # Create master matrix
-T = zeros(length(actions), num_states, num_states)
+T = zeros(length(actions), num_states, num_states);
 
 ## Place prob matrices into the master matrix
 for a_ind in eachindex(actions)
@@ -212,79 +214,166 @@ T[2,range, range] = I(num_ΔNTCP_states*num_budget_states)
 bad_rows_R = sanity_check_prob(T[1,:,:])
 bad_rows_C = sanity_check_prob(T[2,:,:])
 
-# Write transition matrix to an excel file (with labels)
-# TODO: 
+# Write state transition matrix to an excel file (with labels)
+# TODO
 
 
 #### Observation probabilities
-# TODO: 
-# An observation is observed after the state transitions
+# An observation is observed after the state transitions, hence depends on the new state
 # O: <action> : <end-state> : <observation> %f
 # O: <action> : <end-state>
 # %f %f ... %f
 
-# TODO: Give meaning values
-observation_intensities = [i*j for i = 1:0.5:2, j=1:3]  # matrix
-
-# Create master matrix
+# Create master probability matrix
 O = zeros(length(actions), num_states, num_observations)
 O_sub = zeros(num_ΔNTCP_states, num_observations)
-# Will assume the probabilities are independent of budget and time (may consider time dependence)
+# Will assume the observation probabilities are independent of budget and time (may consider time dependence)
 # The worse a ΔNTCP state, the likelier for a worse observation
-# Will assume states are ordered from best to worse, with high pain being worse than a high BMI drop
-# Replan should have larger probabilities of going to better states than Continue
+# Will assume observations are ordered from best to worse, with high pain being worse than a high BMI drop
 
-# Weights of likeliness and length of their blocks in the prob. matrix
-w_h = 4 # prob: highest
-# block_length_h = 4
-w_m = w_h / 2 # prob: medium
-# block_length_h = 2
-w_l = 1 # prob: least
-# block_length_h = 3
+# Observation probabilities should be independent of the action, what matters is the new state
+# The action influences the state transition probabilities
+O_sub = [
+    1/6 1/6 1/6 1/6 1/12 1/12 1/12 1/24 1/24;
+    1/6 1/6 1/6 1/6 1/12 1/12 1/12 1/24 1/24;
+    1/6 1/6 1/6 1/6 1/12 1/12 1/12 1/24 1/24;
+    5/65 5/65 8/52 8/52 8/52 8/52 5/65 5/65 5/65;
+    5/65 5/65 8/52 8/52 8/52 8/52 5/65 5/65 5/65;
+    5/65 5/65 5/65 8/52 8/52 8/52 8/52 5/65 5/65;
+    5/65 5/65 5/65 8/52 8/52 8/52 8/52 5/65 5/65;
+    5/65 5/65 5/65 8/52 8/52 8/52 8/52 5/65 5/65;
+    1/25 2/25 2/25 2/25 4/25 4/25 4/25 4/25 2/25;
+    1/25 2/25 2/25 2/25 4/25 4/25 4/25 4/25 2/25;
+    1/24 1/24 1/12 1/12 1/12 1/6 1/6 1/6 1/6;
+    1/24 1/24 1/12 1/12 1/12 1/6 1/6 1/6 1/6;
+    1/24 1/24 1/12 1/12 1/12 1/6 1/6 1/6 1/6
+]
+# bad_rows = sanity_check_prob(O_sub) # currently has some rounding issues, hopefully will not break the solver
+
+# ## For formulaic constuction of observation probabilities
+# # Weights of likeliness and length of their blocks in the prob. matrix
+# w_h = 4 # prob: highest
+# # block_length_h = 4
+# w_m = w_h / 2 # prob: medium
+# # block_length_h = 2
+# w_l = 1 # prob: least
+# # block_length_h = 3
+
+# TODO: Verify probabilities are in the correct places and any values made up do not alter the POMDP
 
 ## Replan
-# TODO: Fix this to reflect replanning (increase prob toward betters states)
-O_sub = [
-    1/6 1/6 1/6 1/6 1/12 1/12 1/12 1/24 1/24;
-    1/6 1/6 1/6 1/6 1/12 1/12 1/12 1/24 1/24;
-    1/6 1/6 1/6 1/6 1/12 1/12 1/12 1/24 1/24;
-    5/65 5/65 8/52 8/52 8/52 8/52 5/65 5/65 5/65;
-    5/65 5/65 8/52 8/52 8/52 8/52 5/65 5/65 5/65;
-    5/65 5/65 5/65 8/52 8/52 8/52 8/52 5/65 5/65;
-    5/65 5/65 5/65 8/52 8/52 8/52 8/52 5/65 5/65;
-    5/65 5/65 5/65 8/52 8/52 8/52 8/52 5/65 5/65;
-    1/25 2/25 2/25 2/25 4/25 4/25 4/25 4/25 2/25;
-    1/25 2/25 2/25 2/25 4/25 4/25 4/25 4/25 2/25;
-    1/24 1/24 1/12 1/12 1/12 1/6 1/6 1/6 1/6;
-    1/24 1/24 1/12 1/12 1/12 1/6 1/6 1/6 1/6;
-    1/24 1/24 1/12 1/12 1/12 1/6 1/6 1/6 1/6
-]
-# bad_rows_R = sanity_check_prob(O_sub)
+for t = 1:horizon
+    for b = 1:num_budget_states-1
+        ind_start = (t)*num_budget_states*num_ΔNTCP_states +(b)*num_ΔNTCP_states +1
+        ind_end = (t)*num_budget_states*num_ΔNTCP_states +(b+1)*num_ΔNTCP_states
+        O[1,ind_start:ind_end,:] = O_sub
+
+        # foreach(i -> println("$(states[i])"), ind_start:ind_end)
+    end
+end
 ## Continue
-O_sub = [
-    1/6 1/6 1/6 1/6 1/12 1/12 1/12 1/24 1/24;
-    1/6 1/6 1/6 1/6 1/12 1/12 1/12 1/24 1/24;
-    1/6 1/6 1/6 1/6 1/12 1/12 1/12 1/24 1/24;
-    5/65 5/65 8/52 8/52 8/52 8/52 5/65 5/65 5/65;
-    5/65 5/65 8/52 8/52 8/52 8/52 5/65 5/65 5/65;
-    5/65 5/65 5/65 8/52 8/52 8/52 8/52 5/65 5/65;
-    5/65 5/65 5/65 8/52 8/52 8/52 8/52 5/65 5/65;
-    5/65 5/65 5/65 8/52 8/52 8/52 8/52 5/65 5/65;
-    1/25 2/25 2/25 2/25 4/25 4/25 4/25 4/25 2/25;
-    1/25 2/25 2/25 2/25 4/25 4/25 4/25 4/25 2/25;
-    1/24 1/24 1/12 1/12 1/12 1/6 1/6 1/6 1/6;
-    1/24 1/24 1/12 1/12 1/12 1/6 1/6 1/6 1/6;
-    1/24 1/24 1/12 1/12 1/12 1/6 1/6 1/6 1/6
-]
+for t = 1:horizon
+    for b = 1:num_budget_states
+        ind_start = (t)*num_budget_states*num_ΔNTCP_states +(b-1)*num_ΔNTCP_states +1
+        ind_end = (t)*num_budget_states*num_ΔNTCP_states +(b)*num_ΔNTCP_states
+        O[2,ind_start:ind_end,:] = O_sub
+
+        # foreach(i -> println("$(states[i])"), ind_start:ind_end)
+    end
+end
+
+# When in the forbidden state, arbitrarily observe the worst observation with prob. 1 (shouldn't matter)
+O[1,end,end] = 1.0
+O[2,end,end] = 1.0
+
+# Take care of observations of states that can't be reached
+# They are any state with t=1 (for both actions) and any state with a budget of 3 at a time ≥ 2 (for Replan)
+# Have these states arbitrarily observe the last observation (shouldn't matter)
+## Case 1: t = 1
+for b = 1:num_budget_states
+    ind_start = (b-1)*num_ΔNTCP_states +1
+    ind_end = (b)*num_ΔNTCP_states
+    O[1,ind_start:ind_end,end] .= 1.0
+    O[2,ind_start:ind_end,end] .= 1.0
+
+    # foreach(i -> println("$(states[i])"), ind_start:ind_end)
+end
+## Case t ≥ 2 for Replan
+for t = 2:horizon+1
+    for b = 1:1
+        ind_start = (t-1)*num_budget_states*num_ΔNTCP_states +(b-1)*num_ΔNTCP_states +1
+        ind_end = (t-1)*num_budget_states*num_ΔNTCP_states +(b)*num_ΔNTCP_states
+        O[1,ind_start:ind_end,end] .= 1.0
+
+        # foreach(i -> println("$(states[i])"), ind_start:ind_end)
+    end
+end
+
+bad_rows_R = sanity_check_prob(O[1,:,:])
+# foreach(tup -> println("$(states[tup[1]])"), bad_rows_R)
+# foreach(tup -> println("$(states[tup[1]]) --- $(tup[2])"), bad_rows_R)
+
+bad_rows_C = sanity_check_prob(O[2,:,:])
+# foreach(tup -> println("$(states[tup[1]])"), bad_rows_C)
+# foreach(tup -> println("$(states[tup[1]]) --- $(tup[2])"), bad_rows_C)
+
+# Write observation probability matrix to an excel file (with labels)
+# TODO
 
 
 #### Immediate Rewards
-# TODO: 
-R = Dict("Replan" => zeros(states, states, length(observations)), "Continue" => zeros(states, states, length(observations)))
-for s_start in Base.OneTo(states)
-    R["Replan"][s_start,:,:] = [(s_end-s_start) * o for s_end = 1:states, o = observation_intensities]
+# TODO
+R = Dict("Replan" => zeros(num_states, num_states, num_observations), "Continue" => zeros(num_states, num_states, num_observations))
+# Rewards across ΔNTCP states (need to address forbidden state still)
+R_NTCP = [-(s_end - s_start) for s_start ∈ ΔNTCP_states, s_end ∈ ΔNTCP_states]
+# Recall we are assuming observations are ordered from best to worst, with high pain being worse than a high BMI drop
+# The observation_intensities are to scale the rewards by the severity of the observation
+observation_intensities = [i for i = num_observations:-1:1] # we are maximizing so decreasing values
+# TODO: Hear me out. Rewards are independent of the observation (hence, no scaling necessary)
+
+## Replan
+for t = 1:horizon
+    for b = 1:num_budget_states-1
+        row_indices = ((t-1)*num_budget_states*num_ΔNTCP_states +(b-1)*num_ΔNTCP_states +1):((t-1)*num_budget_states*num_ΔNTCP_states +(b)*num_ΔNTCP_states)
+        col_indices = ((t)*num_budget_states*num_ΔNTCP_states +(b)*num_ΔNTCP_states +1):((t)*num_budget_states*num_ΔNTCP_states +(b+1)*num_ΔNTCP_states)
+        # println("\trow indices: $row_indices")
+        # println("\tcol indices: $col_indices")
+        for obs in observation_intensities
+            R["Replan"][row_indices, col_indices, obs] = R_NTCP * obs
+        end
+    end
 end
-R["Continue"] = 3 * copy(R["Replan"])
+## Continue
+for t = 1:horizon
+    for b = 1:num_budget_states
+        row_indices = ((t-1)*num_budget_states*num_ΔNTCP_states +(b-1)*num_ΔNTCP_states +1):((t-1)*num_budget_states*num_ΔNTCP_states +(b)*num_ΔNTCP_states)
+        col_indices = ((t)*num_budget_states*num_ΔNTCP_states +(b-1)*num_ΔNTCP_states +1):((t)*num_budget_states*num_ΔNTCP_states +(b)*num_ΔNTCP_states)
+        # println("\trow indices: $row_indices")
+        # println("\tcol indices: $col_indices")
+        for obs in observation_intensities
+            R["Continue"][row_indices, col_indices, obs] = R_NTCP * obs
+        end
+    end
+end
+
+# Whenever the budget is 0 and action is Replan, give a big negative to reward to prevent this
+for t = 1:horizon
+    ind_start = (t-1)*num_ΔNTCP_states*num_budget_states + (num_budget_states-1)*num_ΔNTCP_states + 1
+    ind_end = (t-1)*num_ΔNTCP_states*num_budget_states + (num_budget_states)*num_ΔNTCP_states
+    # println("Range: $ind_start:$ind_end")
+    # println("States: $(states[ind_start:ind_end])")
+    # Reward is the same for any state and observation transitioning to the absorbing state (end)
+    R["Replan"][ind_start:ind_end, end,:] .= -1000.0  # reward is the same for any state and observation transitioning to the absorbing state (end)
+end
+
+# Rewards at the absorbing state (value shouldn't matter)
+R["Replan"][end,end,:] .= 0.0
+R["Continue"][end,end,:] .= 0.0
+
+# Rewards at horizon + 1 (value shoulnd't matter)
+range = horizon *num_ΔNTCP_states *num_budget_states +1:(horizon+1) *num_ΔNTCP_states *num_budget_states
+R["Replan"][range, range,:] .= zeros(num_ΔNTCP_states*num_budget_states, num_ΔNTCP_states*num_budget_states)
+R["Continue"][range, range,:] .= zeros(num_ΔNTCP_states*num_budget_states, num_ΔNTCP_states*num_budget_states)
 
 ##########################################################################
 #### Write to file
