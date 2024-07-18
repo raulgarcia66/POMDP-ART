@@ -377,7 +377,7 @@ R["Continue"][range, range,:] .= zeros(num_ΔNTCP_states*num_budget_states, num_
 ##########################################################################
 #### Write to file
 
-filename = "tester-v2.POMDP"
+filename = "tester.POMDP"
 full_path = joinpath(pwd(), "Input Files", "$filename")
 f = open(full_path, "w")
 write(f, "# Dummy input file to test pomdp-solve\n")
