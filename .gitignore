@@ -1,8 +1,8 @@
 *.pdf
 /Input Files/Instructions executing solver.txt
-*.POMDP
-*.alpha
-*.pg
+# *.POMDP
+# *.alpha
+# *.pg
 !tester-86760.alpha
 !tester-86760.pg
 !tester.POMDP

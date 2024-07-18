@@ -211,8 +211,8 @@ T[1,range, range] = I(num_ΔNTCP_states*num_budget_states)
 T[2,range, range] = I(num_ΔNTCP_states*num_budget_states)
 
 # Check if probabilities are valid
-bad_rows_R = sanity_check_prob(T[1,:,:])
-bad_rows_C = sanity_check_prob(T[2,:,:])
+# bad_rows_R = sanity_check_prob(T[1,:,:])
+# bad_rows_C = sanity_check_prob(T[2,:,:])
 
 # Write state transition matrix to an excel file (with labels)
 # TODO
@@ -309,11 +309,11 @@ for t = 2:horizon+1
     end
 end
 
-bad_rows_R = sanity_check_prob(O[1,:,:])
+# bad_rows_R = sanity_check_prob(O[1,:,:])
 # foreach(tup -> println("$(states[tup[1]])"), bad_rows_R)
 # foreach(tup -> println("$(states[tup[1]]) --- $(tup[2])"), bad_rows_R)
 
-bad_rows_C = sanity_check_prob(O[2,:,:])
+# bad_rows_C = sanity_check_prob(O[2,:,:])
 # foreach(tup -> println("$(states[tup[1]])"), bad_rows_C)
 # foreach(tup -> println("$(states[tup[1]]) --- $(tup[2])"), bad_rows_C)
 
@@ -322,7 +322,6 @@ bad_rows_C = sanity_check_prob(O[2,:,:])
 
 
 #### Immediate Rewards
-# TODO
 R = Dict("Replan" => zeros(num_states, num_states, num_observations), "Continue" => zeros(num_states, num_states, num_observations))
 # Rewards across ΔNTCP states (need to address forbidden state still)
 R_NTCP = [-(s_end - s_start) for s_start ∈ ΔNTCP_states, s_end ∈ ΔNTCP_states]
@@ -378,11 +377,10 @@ R["Continue"][range, range,:] .= zeros(num_ΔNTCP_states*num_budget_states, num_
 ##########################################################################
 #### Write to file
 
-filename = "tester.POMDP"
+filename = "tester-v2.POMDP"
 full_path = joinpath(pwd(), "Input Files", "$filename")
 f = open(full_path, "w")
 write(f, "# Dummy input file to test pomdp-solve\n")
-write(f,"# TODO: Add budget to state\n# TODO: Create meaningful observation probabilities\n\n")
 
 #### The first five line must be these (can be in a different order though)
 
@@ -393,7 +391,7 @@ write(f, "discount: $discount\n")
 write(f, "values: $values\n")
 
 #### States
-write(f, "states: $states\n")
+write(f, "states: $num_states\n")
 # write(f, "states = ")
 
 #### Actions
@@ -440,8 +438,8 @@ write(f, "\n\n")
 # end
 for a in eachindex(actions)
     write(f, "T: $(actions[a])\n")
-    for s_start in Base.OneTo(states)
-        for s_end in Base.OneTo(states)
+    for s_start in Base.OneTo(num_states)
+        for s_end in Base.OneTo(num_states)
             write(f, "$(T[a,s_start,s_end]) ")
         end
         write(f, "\n")
@@ -452,17 +450,27 @@ end
 #### Observation probabilities
 # write(f, "O: ")
 # write(f, "...")
-for a in actions
-    write(f, "O: $(a)\nuniform\n\n")
+for a in eachindex(actions)
+    write(f, "O: $(actions[a])\n")
+    for s_end in Base.OneTo(num_states)
+        for o in Base.OneTo(num_observations)
+            write(f, "$(O[a,s_end,o]) ")
+        end
+        write(f, "\n")
+    end
+    write(f, "\n")
 end
+# for a in actions
+#     write(f, "O: $(a)\nuniform\n\n")
+# end
 
 #### Immediate rewards
 # write(f, "R: ")
 # write(f, "...")
-for action in actions, s_start in Base.OneTo(states)
+for action in actions, s_start in Base.OneTo(num_states)
     write(f, "R: $action : $(s_start-1)\n")
-    for s_end in Base.OneTo(states)
-        for o in eachindex(observations)
+    for s_end in Base.OneTo(num_states)
+        for o in Base.OneTo(num_observations)
             write(f, "$(R[action][s_start,s_end,o]) ")
         end
         write(f, "\n")
@@ -474,6 +482,6 @@ close(f)
 
 ##########################################################################
 #### Execute pomdp-solve via command line
-# cmd = `/Users/raulgarcia/Documents/pomdp-solve-5.5/src/pomdp-solve -pomdp ./Input\ Files/$filename`
-# run(cmd)
+cmd = `/Users/raulgarcia/Documents/pomdp-solve-5.5/src/pomdp-solve -pomdp Input\ Files/$filename`
+run(cmd)
 
