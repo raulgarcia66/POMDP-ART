@@ -176,16 +176,16 @@ for a_ind in eachindex(actions)
             for b = 1:num_budget_states-1
                 row_indices = ((t-1)*num_budget_states*num_ΔNTCP_states +(b-1)*num_ΔNTCP_states +1):((t-1)*num_budget_states*num_ΔNTCP_states +(b)*num_ΔNTCP_states)
                 col_indices = ((t)*num_budget_states*num_ΔNTCP_states +(b)*num_ΔNTCP_states +1):((t)*num_budget_states*num_ΔNTCP_states +(b+1)*num_ΔNTCP_states)
-                println("\trow indices: $row_indices")
-                println("\tcol indices: $col_indices")
+                # println("\trow indices: $row_indices")
+                # println("\tcol indices: $col_indices")
                 T[a_ind, row_indices, col_indices] = T_ΔNTCP_all[actions[a_ind]][t] # copy(T_ΔNTCP_F10toF15_R)
             end
         elseif actions[a_ind] == "Continue"
             for b = 1:num_budget_states
                 row_indices = ((t-1)*num_budget_states*num_ΔNTCP_states +(b-1)*num_ΔNTCP_states +1):((t-1)*num_budget_states*num_ΔNTCP_states +(b)*num_ΔNTCP_states)
                 col_indices = ((t)*num_budget_states*num_ΔNTCP_states +(b-1)*num_ΔNTCP_states +1):((t)*num_budget_states*num_ΔNTCP_states +(b)*num_ΔNTCP_states)
-                println("\trow indices: $row_indices")
-                println("\tcol indices: $col_indices")
+                # println("\trow indices: $row_indices")
+                # println("\tcol indices: $col_indices")
                 T[a_ind, row_indices, col_indices] = T_ΔNTCP_all[actions[a_ind]][t] # copy(T_ΔNTCP_F10toF15_C)
             end
         end
@@ -328,7 +328,8 @@ R_NTCP = [-(s_end - s_start) for s_start ∈ ΔNTCP_states, s_end ∈ ΔNTCP_sta
 # Recall we are assuming observations are ordered from best to worst, with high pain being worse than a high BMI drop
 # The observation_intensities are to scale the rewards by the severity of the observation
 observation_intensities = [i for i = num_observations:-1:1] # we are maximizing so decreasing values
-# TODO: Hear me out. Rewards are independent of the observation (hence, no scaling necessary)
+# Hear me out. Rewards are independent of the observation (hence, no scaling necessary)
+observation_intensities = [1 for _ = 1:num_observations]
 
 ## Replan
 for t = 1:horizon
@@ -371,16 +372,17 @@ R["Continue"][end,end,:] .= 0.0
 
 # Rewards at horizon + 1 (value shoulnd't matter)
 range = horizon *num_ΔNTCP_states *num_budget_states +1:(horizon+1) *num_ΔNTCP_states *num_budget_states
-R["Replan"][range, range,:] .= zeros(num_ΔNTCP_states*num_budget_states, num_ΔNTCP_states*num_budget_states)
-R["Continue"][range, range,:] .= zeros(num_ΔNTCP_states*num_budget_states, num_ΔNTCP_states*num_budget_states)
+R["Replan"][range, range,:] .= zeros(num_ΔNTCP_states*num_budget_states, num_ΔNTCP_states*num_budget_states);
+R["Continue"][range, range,:] .= zeros(num_ΔNTCP_states*num_budget_states, num_ΔNTCP_states*num_budget_states);
 
 ##########################################################################
 #### Write to file
 
-filename = "tester.POMDP"
+# filename = "tester.POMDP"
+filename = "tester-obs_indep_rewards.POMDP"
 full_path = joinpath(pwd(), "Input Files", "$filename")
 f = open(full_path, "w")
-write(f, "# Dummy input file to test pomdp-solve\n")
+write(f, "# Describe this instance here\n")
 
 #### The first five line must be these (can be in a different order though)
 
@@ -392,7 +394,6 @@ write(f, "values: $values\n")
 
 #### States
 write(f, "states: $num_states\n")
-# write(f, "states = ")
 
 #### Actions
 write(f, "actions: ")
