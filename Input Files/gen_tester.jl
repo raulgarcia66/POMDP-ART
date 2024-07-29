@@ -9,7 +9,7 @@ include("./util.jl")
 # %f
 discount = 0.99
 
-#### Rewards
+#### Min/Max
 # [ reward, cost ]
 # values =  "cost" # to minimize
 values = "reward" # to maximize
@@ -199,6 +199,7 @@ for t = 1:horizon
     ind_end = (t-1)*num_ΔNTCP_states*num_budget_states + (num_budget_states)*num_ΔNTCP_states
     println("Range: $ind_start:$ind_end")
     println("States: $(states[ind_start:ind_end])")
+
     T[1, ind_start:ind_end, end] .= 1.0  # last state is the absorbing state
 end
 # Recursion of the absorbing state
@@ -224,7 +225,7 @@ T[2,range, range] = I(num_ΔNTCP_states*num_budget_states)
 # O: <action> : <end-state>
 # %f %f ... %f
 
-# Create master probability matrix
+# Create master observation probability matrix
 O = zeros(length(actions), num_states, num_observations)
 O_sub = zeros(num_ΔNTCP_states, num_observations)
 # Will assume the observation probabilities are independent of budget and time (may consider time dependence)
@@ -323,12 +324,13 @@ end
 
 #### Immediate Rewards
 R = Dict("Replan" => zeros(num_states, num_states, num_observations), "Continue" => zeros(num_states, num_states, num_observations))
-# Rewards across ΔNTCP states (need to address forbidden state still)
+# Rewards across ΔNTCP states
+# TODO: Need to address forbidden state still
 R_NTCP = [-(s_end - s_start) for s_start ∈ ΔNTCP_states, s_end ∈ ΔNTCP_states]
 # Recall we are assuming observations are ordered from best to worst, with high pain being worse than a high BMI drop
 # The observation_intensities are to scale the rewards by the severity of the observation
 observation_intensities = [i for i = num_observations:-1:1] # we are maximizing so decreasing values
-# Hear me out. Rewards are independent of the observation (hence, no scaling necessary)
+# If we prefer rewards be independent of the observation (hence, no scaling necessary)
 observation_intensities = [1 for _ = 1:num_observations]
 
 ## Replan
@@ -362,8 +364,9 @@ for t = 1:horizon
     ind_end = (t-1)*num_ΔNTCP_states*num_budget_states + (num_budget_states)*num_ΔNTCP_states
     # println("Range: $ind_start:$ind_end")
     # println("States: $(states[ind_start:ind_end])")
+
     # Reward is the same for any state and observation transitioning to the absorbing state (end)
-    R["Replan"][ind_start:ind_end, end,:] .= -1000.0  # reward is the same for any state and observation transitioning to the absorbing state (end)
+    R["Replan"][ind_start:ind_end, end,:] .= -1000.0
 end
 
 # Rewards at the absorbing state (value shouldn't matter)
@@ -378,8 +381,8 @@ R["Continue"][range, range,:] .= zeros(num_ΔNTCP_states*num_budget_states, num_
 ##########################################################################
 #### Write to file
 
-# filename = "tester.POMDP"
-filename = "tester-obs_indep_rewards.POMDP"
+filename = "tester.POMDP"
+# filename = "tester-obs_indep_rewards.POMDP"
 full_path = joinpath(pwd(), "Input Files", "$filename")
 f = open(full_path, "w")
 write(f, "# Describe this instance here\n")
@@ -483,6 +486,15 @@ close(f)
 
 ##########################################################################
 #### Execute pomdp-solve via command line
-cmd = `/Users/raulgarcia/Documents/pomdp-solve-5.5/src/pomdp-solve -pomdp Input\ Files/$filename`
+filename = "tester-obs_indep_rewards.POMDP"
+
+# cmd = `/Users/raulgarcia/Documents/pomdp-solve-5.5/src/pomdp-solve -pomdp Input\ Files/$filename`
+# run(cmd)
+
+time_limit = 60  # seconds
+cmd = `/Users/raulgarcia/Documents/pomdp-solve-5.5/src/pomdp-solve -pomdp Input\ Files/$filename -time_limit $time_limit`
 run(cmd)
 
+max_iter = 5
+cmd = `/Users/raulgarcia/Documents/pomdp-solve-5.5/src/pomdp-solve -pomdp Input\ Files/$filename -horizon $max_iter`
+run(cmd)
