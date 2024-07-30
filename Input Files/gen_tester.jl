@@ -283,16 +283,19 @@ for t = 1:horizon
     end
 end
 
-# When in the forbidden state, arbitrarily observe the worst observation with prob. 1 (shouldn't matter)
+## When in the forbidden state, arbitrarily observe the worst observation with prob. 1 (shouldn't matter)
 O[1,end,end] = 1.0
 O[2,end,end] = 1.0
 
-# Take care of observations of states that can't be reached
+## Take care of observations of states that can't be reached
 # They are any state with t=1 (for both actions) and any state with a budget of 3 at a time ≥ 2 (for Replan)
 # Have these states arbitrarily observe the last observation (shouldn't matter)
+# TODO: This may be what's causing the trouble. What about a budget of 2 or 3 at time ≥ 3 (for Replan)? A budget of 1,2 or 3 at time ≥ 4?
+# TODO: Check all cases. Additionally, the stated with t=1 always observing the last observation arbitrarily may also be causing trouble
+
 ## Case 1: t = 1
 for b = 1:num_budget_states
-    ind_start = (b-1)*num_ΔNTCP_states +1
+    ind_start = (b-1)*num_ΔNTCP_states + 1
     ind_end = (b)*num_ΔNTCP_states
     O[1,ind_start:ind_end,end] .= 1.0
     O[2,ind_start:ind_end,end] .= 1.0
