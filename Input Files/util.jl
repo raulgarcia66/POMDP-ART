@@ -6,7 +6,11 @@ function sanity_check_prob(P::Matrix{T}; tol::Float64 = 1E-5) where T
 end
 
 function sanity_check_prob(x::Vector{T}; tol::Float64 = 1E-5) where T
-    return abs(sum(x) - 1.0) > tol
+    if abs(sum(x) - 1.0) > tol
+        println("Invalid probabilities")
+    else
+        println("Valid probabilities")
+    end
 end
 
 # """
