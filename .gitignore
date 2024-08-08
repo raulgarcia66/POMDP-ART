@@ -1,4 +1,5 @@
 *.pdf
+*.xlsx
 /Input Files/Instructions executing solver.txt
 # *.POMDP
 # *.alpha
