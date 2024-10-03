@@ -1,6 +1,7 @@
 *.pdf
 *.xlsx
-/Input Files/Instructions executing solver.txt
+*.csv
+*.txt
 # *.POMDP
 # *.alpha
 # *.pg
@@ -8,5 +9,8 @@
 !tester-86760.pg
 !tester.POMDP
 
+
 /Aim 2 Data
 /POMDP Examples
+/Anonymized_planned_vs_delivered_dose_accumulation_data
+
